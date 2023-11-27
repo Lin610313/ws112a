@@ -1,13 +1,13 @@
 import { Application, Router, send } from "https://deno.land/x/oak/mod.ts";
  
 const peoples = new Map();
-peoples.set("john", {
-  name: "john",
-  tel: "082-313345",
+peoples.set("Mary", {
+  account: "Mary",
+  password: "123456",
 });
-peoples.set("mary", {
-  name: "mary",
-  tel: "082-313543",
+peoples.set("Jary", {
+  account: "Jary",
+  password: "654321",
 });
 
 const router = new Router();
@@ -15,10 +15,39 @@ router
   .get("/", (ctx) => {
     ctx.response.body = "Home";
   })
-  .get("/people", (ctx) => {
-    ctx.response.body = Array.from(peoples.values());
+  .get("/public/(.*)", async (ctx) => {
+    let wpath = ctx.params[0]
+    //console.log('wpath=', wpath)
+    await send(ctx, wpath, {
+      root: Deno.cwd()+"/public/",
+      index: "index.html",
+    })
   })
-  .post("/people/add", async (ctx) => {
+  .post("/people/login", async (ctx) => {
+    const body = ctx.request.body()
+    if (body.type === "form") {
+      const pairs = await body.value
+      //console.log('pairs=', pairs)
+      const params = {}
+      for (const [key, value] of pairs) {
+        params[key] = value
+      }
+      console.log('params=', params)
+      let account = params['account']
+      let password = params['password']
+      //console.log(`account=${account} password=${password}`)
+      ctx.response.type = 'text/html'
+      if (peoples.has(account) && peoples.get(account).password == password) {
+        ctx.response.body = `
+          <h1>Login success</h1>
+          <h2><a href="/public/index.html">Enter the system</a></h2>`
+      } else {
+        ctx.response.body = `
+          <h1>Login failed, please check whether the account number and password are correct.</h1>`
+      }
+    }
+  })
+  .post("/people/sign_up", async (ctx) => {
     const body = ctx.request.body()
     if (body.type === "form") {
       const pairs = await body.value
@@ -28,36 +57,23 @@ router
         params[key] = value
       }
       console.log('params=', params)
-      let name = params['name']
-      let tel = params['tel']
-      console.log(`name=${name} tel=${tel}`)
-      if (peoples.get(name)) {
-        ctx.response.body = {'error':`name=${name} 已經存在！`}
+      let account = params['account']
+      let password = params['password']
+      console.log(`account=${account} password=${password}`)
+      if (peoples.get(account)) {
+        ctx.response.body = `
+        <h1>Sign up failed</h1>
+        <h2>Account has been used</h2>`
       } else {
-        peoples.set(name, {name, tel})
+        peoples.set(account, {account, password})
         ctx.response.type = 'text/html'
-        ctx.response.body = `<p>新增 (${name}, ${tel}) 成功</p><p><a href="/people/">列出所有人員</a></p>`
+        ctx.response.body = `
+        <h1>Sign up success</h1>
+        <h2><a href="/public/login.html">Login the system</a></h2>`
       }
+    }
+  });
   
-    }
-
-  })
-  .get("/people/find", (ctx) => {
-    let params = ctx.request.url.searchParams    
-    let name = params.get('name')
-    console.log('name=', name)
-    if (peoples.has(name)) {
-      ctx.response.body = peoples.get(name);
-    }
-  })
-  .get("/public/(.*)", async (ctx) => {
-    let wpath = ctx.params[0]
-    console.log('wpath=', wpath)
-    await send(ctx, wpath, {
-      root: Deno.cwd()+"/public/",
-      index: "index.html",
-    })
-  })
 
 const app = new Application();
 
